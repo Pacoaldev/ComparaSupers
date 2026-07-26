@@ -62,6 +62,9 @@ class MercadonaScraper(BaseScraper):
 
         ids = []
         for cat in data.get("results", []):
+            cat_name = cat.get("name", "").lower()
+            if any(ig in cat_name for ig in ["cabello", "corporal", "maquillaje", "fitoterapia", "limpieza", "hogar", "mascotas", "bebe", "bebé", "perfumería", "perfumeria"]):
+                continue
             for subcat in cat.get("categories", []):
                 ids.append(subcat["id"])
         return ids

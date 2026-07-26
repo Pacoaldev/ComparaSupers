@@ -64,6 +64,16 @@ class ConsumScraper(BaseScraper):
             if not name or not _matches(name, product_name):
                 continue
 
+            # Verify category is food/supermarket
+            is_ignored = False
+            for cat in product.get("categories", []):
+                cat_name = cat.get("name", "").lower()
+                if any(ig in cat_name for ig in ["mascota", "limpieza", "perfumeri", "drogueri", "bebe", "cosmetic", "higiene"]):
+                    is_ignored = True
+                    break
+            if is_ignored:
+                continue
+
             price_data = product.get("priceData", {})
             prices = price_data.get("prices", [])
             price_val = None

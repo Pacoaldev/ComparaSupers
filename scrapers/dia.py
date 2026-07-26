@@ -85,11 +85,26 @@ class DiaScraper(BaseScraper):
             print(f"[DIA] No se extrajeron productos del JSON")
             return None
 
-        # Filtrar por relevancia con el término de búsqueda
-        matching = [p for p in products if _matches(p.get("name", ""), search_term)]
+        # Filtrar por relevancia con el término de búsqueda y categoría de alimentación
+        matching = []
+        for p in products:
+            if not _matches(p.get("name", ""), search_term):
+                continue
+            
+            l1_cat = p.get("l1_cat", "").lower()
+            l2_cat = p.get("l2_cat", "").lower()
+            ignored_cats = ["mascota", "drogueri", "hogar", "limpieza", "perfumeri", "cosmetic", "maquillaje", "bebe", "parafarmacia"]
+            
+            if l1_cat and any(ig in l1_cat for ig in ignored_cats):
+                continue
+            if l2_cat and any(ig in l2_cat for ig in ignored_cats):
+                continue
+                
+            matching.append(p)
+
         if not matching:
-            # Si no hay match exacto, usar todos los resultados
-            matching = products
+            # Si no hay match con filtro, usar todos los de la búsqueda que tengan match
+            matching = [p for p in products if _matches(p.get("name", ""), search_term)]
 
         # Parsear precios y elegir el más barato (unidad, no pack)
         candidates = []
@@ -222,7 +237,17 @@ class DiaScraper(BaseScraper):
         if isinstance(prices_obj, dict) and prices_obj.get("measure_unit"):
             unit = str(prices_obj.get("measure_unit")).lower()
 
-        return {"name": name, "price": price or 0, "url": url_path, "unit": unit}
+        l1_cat = item.get("l1_category_description") or ""
+        l2_cat = item.get("l2_category_description") or ""
+
+        return {
+            "name": name,
+            "price": price or 0,
+            "url": url_path,
+            "unit": unit,
+            "l1_cat": l1_cat,
+            "l2_cat": l2_cat
+        }
 
     def _recursive_search(self, obj, results: list, depth: int = 0):
         """Búsqueda recursiva de productos en el JSON."""

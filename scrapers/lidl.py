@@ -65,6 +65,24 @@ class LidlScraper(BaseScraper):
             if not title or not _matches(title, product_name):
                 continue
 
+            # Verify it's a food / supermarket item
+            is_food = False
+            breadcrumbs = g_data.get("meta", {}).get("wonCategoryBreadcrumbs", [])
+            if breadcrumbs:
+                for path in breadcrumbs:
+                    for cat in path:
+                        name_cat = cat.get("name", "").lower()
+                        if any(kw in name_cat for kw in ["alimentaci", "comida", "bebida", "fresco", "lacte", "panader", "bodega", "despensa", "fruta", "verdura", "lunes y jueves"]):
+                            is_food = True
+                            break
+            
+            tracking_category = item.get("tracking", {}).get("xPayload", {}).get("category", "")
+            if tracking_category and tracking_category.lower() == "food":
+                is_food = True
+
+            if not is_food:
+                continue
+
             price_info = g_data.get("price", {})
             price_val = price_info.get("price")
             if price_val is None:
