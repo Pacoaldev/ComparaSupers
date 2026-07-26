@@ -1,6 +1,7 @@
 # Tests
 test_*
 tests/
+debug_*
 .pytest_cache/
 htmlcov/
 .tox/
@@ -39,3 +40,21 @@ build/
 *.njsproj
 *.sln
 *.swp
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and databases
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
