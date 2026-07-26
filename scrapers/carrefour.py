@@ -5,6 +5,7 @@ La tienda de Carrefour España intercepta las llamadas XHR a su API interna
 que devuelven JSON limpio con precios y productos.
 """
 
+import asyncio
 import json
 import re
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
@@ -63,10 +64,55 @@ class CarrefourScraper(BaseScraper):
             page.on("response", handle_response)
 
             try:
-                await page.goto(url, wait_until="networkidle", timeout=30000)
-            except PlaywrightTimeout:
-                # Incluso con timeout parcial puede haber datos
-                pass
+                # 1. Visit homepage first to set cookies
+                await page.goto("https://www.carrefour.es/supermercado", wait_until="domcontentloaded", timeout=20000)
+                await asyncio.sleep(1.5)
+
+                # Check Cloudflare block
+                html_content = await page.content()
+                page_title = await page.title()
+                if "cloudflare" in html_content.lower() or "just a moment" in html_content.lower() or "cloudflare" in page_title.lower():
+                    print(f"[Carrefour] Bloqueado por Cloudflare en la página principal")
+                    await browser.close()
+                    return None
+
+                # 2. Accept cookies if visible
+                try:
+                    await page.click("#onetrust-accept-btn-handler", timeout=3000)
+                    await asyncio.sleep(0.5)
+                except Exception:
+                    pass
+
+                # 3. Close the "Compra más rápido" popup
+                for sel in [
+                    "button.modal__close",
+                    "button[aria-label='Cerrar']",
+                    "button[aria-label='cerrar']",
+                    ".modal__close",
+                    "button.close",
+                    ".modal button:first-of-type",
+                    "[class*='modal'] [class*='close']",
+                    "[class*='dialog'] [class*='close']",
+                ]:
+                    try:
+                        await page.click(sel, timeout=1000)
+                        await asyncio.sleep(0.5)
+                        break
+                    except Exception:
+                        pass
+
+                # 4. Navigate to search page
+                search_url = f"https://www.carrefour.es/supermercado?query={product_name.replace(' ', '+')}"
+                await page.goto(search_url, wait_until="domcontentloaded", timeout=25000)
+                await asyncio.sleep(3)
+
+                # Check Cloudflare block on search page
+                html_content = await page.content()
+                page_title = await page.title()
+                if "cloudflare" in html_content.lower() or "just a moment" in html_content.lower() or "cloudflare" in page_title.lower():
+                    print(f"[Carrefour] Bloqueado por Cloudflare en la página de búsqueda")
+                    await browser.close()
+                    return None
             except Exception as e:
                 print(f"[Carrefour] Error navegando: {e}")
                 await browser.close()

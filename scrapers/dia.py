@@ -144,24 +144,35 @@ class DiaScraper(BaseScraper):
         """Navega el árbol JSON de DIA para encontrar la lista de productos."""
         results = []
 
-        # Ruta conocida: pageContext -> pageProps -> initialState -> search -> searchProducts
+        # 1. Intentar la nueva ruta: INITIAL_STATE -> header -> searchData -> search_items
         try:
-            search_data = (
-                data.get("pageContext", data)
-                    .get("pageProps", {})
-                    .get("initialState", {})
-                    .get("search", {})
-            )
-            # Productos de búsqueda
-            search_products = search_data.get("searchProducts", [])
-            for item in search_products:
+            init_state = data.get("INITIAL_STATE", {})
+            search_items = init_state.get("header", {}).get("searchData", {}).get("search_items", [])
+            for item in search_items:
                 parsed = self._parse_product_item(item)
                 if parsed:
                     results.append(parsed)
-        except (AttributeError, TypeError):
+        except Exception:
             pass
 
-        # Si no encontramos nada, buscar recursivamente
+        # 2. Intentar la ruta antigua: pageContext -> pageProps -> initialState -> search -> searchProducts
+        if not results:
+            try:
+                search_data = (
+                    data.get("pageContext", data)
+                        .get("pageProps", {})
+                        .get("initialState", {})
+                        .get("search", {})
+                )
+                search_products = search_data.get("searchProducts", [])
+                for item in search_products:
+                    parsed = self._parse_product_item(item)
+                    if parsed:
+                        results.append(parsed)
+            except Exception:
+                pass
+
+        # 3. Fallback: buscar recursivamente
         if not results:
             self._recursive_search(data, results)
 
@@ -173,44 +184,56 @@ class DiaScraper(BaseScraper):
             return None
 
         name = (
-            item.get("name")
+            item.get("display_name")
+            or item.get("name")
             or item.get("displayName")
             or item.get("description", "")
         )
         if not name:
             return None
 
-        # Precio — DIA lo guarda como string "5,76 €" o como número
+        # Precio — DIA lo guarda de varias formas
         price = None
-        for field in ("price", "salePrice", "currentPrice", "priceFormatted"):
-            val = item.get(field)
-            if val is not None:
-                price = val
-                break
+        
+        # Estructura nueva: item["prices"]["price"]
+        prices_obj = item.get("prices")
+        if isinstance(prices_obj, dict):
+            price = prices_obj.get("price")
 
         if price is None:
-            # Buscar en subestructuras de precio
-            pricing = item.get("prices") or item.get("priceData") or {}
-            if isinstance(pricing, dict):
+            # Buscar en campos de nivel superior
+            for field in ("price", "salePrice", "currentPrice", "priceFormatted"):
+                val = item.get(field)
+                if val is not None:
+                    price = val
+                    break
+
+        if price is None:
+            # Buscar en subestructuras anidadas
+            if isinstance(prices_obj, dict):
                 for field in ("value", "formattedValue", "price"):
-                    val = pricing.get(field)
+                    val = prices_obj.get(field)
                     if val:
                         price = val
                         break
 
         url_path = item.get("url") or item.get("link") or item.get("slug") or ""
+        unit = "ud"
+        if isinstance(prices_obj, dict) and prices_obj.get("measure_unit"):
+            unit = str(prices_obj.get("measure_unit")).lower()
 
-        return {"name": name, "price": price or 0, "url": url_path, "unit": "ud"}
+        return {"name": name, "price": price or 0, "url": url_path, "unit": unit}
 
     def _recursive_search(self, obj, results: list, depth: int = 0):
         """Búsqueda recursiva de productos en el JSON."""
         if depth > 8:
             return
         if isinstance(obj, dict):
-            name = obj.get("name", "")
+            name = obj.get("display_name") or obj.get("name") or obj.get("displayName", "")
             # Un producto tiene nombre Y precio
+            prices = obj.get("prices")
             price_fields = [obj.get(f) for f in ("price", "salePrice", "currentPrice") if obj.get(f)]
-            if name and price_fields and len(obj) > 3:
+            if name and (prices or price_fields) and len(obj) > 3:
                 parsed = self._parse_product_item(obj)
                 if parsed and parsed["price"]:
                     results.append(parsed)

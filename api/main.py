@@ -26,6 +26,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scrapers"))
 from aggregator.main import aggregate_results  # noqa: E402  (imported after path fix)
 from mercadona import MercadonaScraper  # noqa: E402
 from dia import DiaScraper  # noqa: E402
+from consum import ConsumScraper  # noqa: E402
+from carrefour import CarrefourScraper  # noqa: E402
+from lidl import LidlScraper  # noqa: E402
+from family_cash import FamilyCashScraper  # noqa: E402
+from alcampo import AlcampoScraper  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +114,11 @@ class CompareResponse(BaseModel):
 SCRAPERS = [
     MercadonaScraper(),
     DiaScraper(),
+    ConsumScraper(),
+    CarrefourScraper(),
+    LidlScraper(),
+    FamilyCashScraper(),
+    AlcampoScraper(),
 ]
 
 
@@ -174,15 +184,16 @@ async def compare(shopping_list: ShoppingList):
             ],
         ))
 
-    if not supermarket_results:
+    valid_results = [r for r in supermarket_results if r.products_found > 0]
+    if not valid_results:
         raise HTTPException(status_code=503, detail="No se pudo obtener precios de ningún supermercado")
 
-    # Sort by total price (ascending)
-    supermarket_results.sort(key=lambda x: x.total)
+    # Sort by total price (ascending), putting empty results at the end
+    supermarket_results.sort(key=lambda x: (x.products_found == 0, x.total))
 
-    cheapest = supermarket_results[0].supermarket
-    most_expensive_total = supermarket_results[-1].total
-    cheapest_total = supermarket_results[0].total
+    cheapest = valid_results[0].supermarket
+    cheapest_total = valid_results[0].total
+    most_expensive_total = valid_results[-1].total
     savings = round(most_expensive_total - cheapest_total, 2)
 
     response = CompareResponse(

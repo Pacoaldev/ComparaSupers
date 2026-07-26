@@ -1,7 +1,8 @@
 """
-Consum scraper — uses Consum's public REST API directly.
+Lidl scraper.
 
-URL: https://tienda.consum.es/api/rest/V1.0/catalog/product?page=1&limit=20&offset=0&orderById=13&showProducts=true&q={query}
+Uses Lidl's internal search API:
+https://www.lidl.es/q/api/search?q={query}&assortment=ES&locale=es_ES&version=2.0
 """
 
 import httpx
@@ -14,12 +15,11 @@ HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Accept": "application/json",
-    "Referer": "https://tienda.consum.es/",
 }
 
 
 def _normalize(text: str) -> str:
+    """Lowercase, remove accents, collapse spaces."""
     text = text.lower().strip()
     replacements = {"á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ü": "u", "ñ": "n"}
     for a, b in replacements.items():
@@ -28,51 +28,45 @@ def _normalize(text: str) -> str:
 
 
 def _matches(product_name: str, search_term: str) -> bool:
+    """Check if all search words appear in the product name."""
     name = _normalize(product_name)
     words = _normalize(search_term).split()
     return all(w in name for w in words)
 
 
-class ConsumScraper(BaseScraper):
+class LidlScraper(BaseScraper):
 
     def __init__(self):
-        super().__init__("Consum")
+        super().__init__("Lidl")
 
     async def search_product(self, product_name: str) -> ProductResult | None:
-        url = f"https://tienda.consum.es/api/rest/V1.0/catalog/product?page=1&limit=20&offset=0&orderById=13&showProducts=true&q={product_name.replace(' ', '+')}"
+        url = f"https://www.lidl.es/q/api/search?q={product_name.replace(' ', '+')}&assortment=ES&locale=es_ES&version=2.0"
 
         async with httpx.AsyncClient(headers=HEADERS, timeout=20) as client:
             try:
                 resp = await client.get(url)
                 if resp.status_code != 200:
-                    print(f"[Consum] Error HTTP {resp.status_code} buscando '{product_name}'")
+                    print(f"[Lidl] Error HTTP {resp.status_code} buscando '{product_name}'")
                     return None
                 data = resp.json()
             except Exception as e:
-                print(f"[Consum] Error buscando '{product_name}': {e}")
+                print(f"[Lidl] Error de red/JSON buscando '{product_name}': {e}")
                 return None
 
-        # Parse products from JSON response
-        products = data.get("products", [])
-        if not products:
+        items = data.get("items", [])
+        if not items:
             return None
 
+        # Filter by match relevance
         candidates = []
-        for product in products:
-            prod_data = product.get("productData", {})
-            name = prod_data.get("name") or prod_data.get("description") or ""
-            if not name or not _matches(name, product_name):
+        for item in items:
+            g_data = item.get("gridbox", {}).get("data", {})
+            title = g_data.get("title") or g_data.get("fullTitle") or ""
+            if not title or not _matches(title, product_name):
                 continue
 
-            price_data = product.get("priceData", {})
-            prices = price_data.get("prices", [])
-            price_val = None
-            for p in prices:
-                if p.get("id") == "PRICE":
-                    val = p.get("value", {})
-                    price_val = val.get("centAmount") or val.get("centUnitAmount")
-                    break
-
+            price_info = g_data.get("price", {})
+            price_val = price_info.get("price")
             if price_val is None:
                 continue
 
@@ -84,17 +78,18 @@ class ConsumScraper(BaseScraper):
             if price <= 0:
                 continue
 
-            unit = price_data.get("unitPriceUnitType") or "ud"
-            product_url = prod_data.get("url")
+            unit = price_info.get("packaging", {}).get("text") or "ud"
+            canonical_url = g_data.get("canonicalUrl")
+            full_url = f"https://www.lidl.es{canonical_url}" if canonical_url else None
 
             # Check if it's a pack
-            is_pack = "pack" in name.lower() or "x " in name.lower()
+            is_pack = "pack" in title.lower() or "x " in title.lower()
 
             candidates.append({
-                "name": name,
+                "name": title,
                 "price": price,
                 "unit": unit,
-                "url": product_url,
+                "url": full_url,
                 "is_pack": is_pack,
             })
 

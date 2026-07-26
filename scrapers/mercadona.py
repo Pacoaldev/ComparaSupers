@@ -51,6 +51,8 @@ class MercadonaScraper(BaseScraper):
         super().__init__("Mercadona")
         # Cache: subcategory_id -> list of products (loaded lazily)
         self._category_map: dict[int, list[dict]] | None = None
+        self._catalog: list[dict] | None = None
+        self._lock = asyncio.Lock()
 
     async def _load_all_subcategory_ids(self, client: httpx.AsyncClient) -> list[int]:
         """Fetch top-level categories and collect all subcategory IDs."""
@@ -90,12 +92,18 @@ class MercadonaScraper(BaseScraper):
         return all_products
 
     async def search_product(self, product_name: str) -> ProductResult | None:
-        async with httpx.AsyncClient(headers=HEADERS, timeout=30) as client:
-            try:
-                catalog = await self._build_catalog(client)
-            except Exception as e:
-                print(f"[Mercadona] Error cargando catálogo: {e}")
-                return None
+        if self._catalog is None:
+            async with self._lock:
+                if self._catalog is None:
+                    async with httpx.AsyncClient(headers=HEADERS, timeout=30) as client:
+                        try:
+                            self._catalog = await self._build_catalog(client)
+                            print(f"[Mercadona] Catálogo cargado con éxito: {len(self._catalog)} productos.")
+                        except Exception as e:
+                            print(f"[Mercadona] Error cargando catálogo: {e}")
+                            return None
+
+        catalog = self._catalog or []
 
         # Find all matching products
         matches = [p for p in catalog if _matches(p.get("display_name", ""), product_name)]
