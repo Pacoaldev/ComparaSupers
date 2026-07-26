@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 # Add scrapers directory to path so we can import scrapers directly
@@ -125,6 +126,17 @@ SCRAPERS = [
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    """Serve the static HTML frontend."""
+    template_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Frontend file not found")
+
 
 @app.get("/health")
 async def health():

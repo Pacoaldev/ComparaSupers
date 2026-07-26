@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Compara precios de tu lista de la compra de forma instantánea entre múltiples supermercados españoles en tiempo real.">
+    <title>ComparaSupers — Ahorra en tu lista de la compra</title>
+    
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.15);
+            --accent-green: #10b981;
+            --accent-green-glow: rgba(16, 185, 129, 0.2);
+            --accent-orange: #f59e0b;
+            --font-main: 'Outfit', sans-serif;
+            --radius-lg: 16px;
+            --radius-md: 8px;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            padding: 2rem 1rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6, #1d4ed8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        main {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* Card panels */
+        .panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: var(--transition);
+        }
+
+        .panel:hover {
+            border-color: #475569;
+        }
+
+        /* List builder */
+        .input-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background-color: #0f172a;
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            padding: 0.85rem 1.2rem;
+            color: var(--text-color);
+            font-family: var(--font-main);
+            font-size: 1rem;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 1rem;
+            transition: var(--transition);
+            outline: none;
+        }
+
+        .btn-add {
+            background-color: var(--primary);
+            color: #ffffff;
+            padding: 0.85rem 1.5rem;
+            border-radius: var(--radius-md);
+        }
+
+        .btn-add:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-compare {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
+            width: 100%;
+            padding: 1.1rem;
+            border-radius: var(--radius-md);
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-compare:hover:not(:disabled) {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-compare:disabled {
+            background: var(--card-border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Chips container */
+        .chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            min-height: 2.5rem;
+        }
+
+        .chip {
+            background-color: #0f172a;
+            border: 1px solid var(--card-border);
+            padding: 0.45rem 0.9rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .chip-remove {
+            color: #ef4444;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .chip-remove:hover {
+            color: #f87171;
+        }
+
+        /* Loader */
+        .loader-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 3rem 0;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--card-border);
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loader-text {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Results summary */
+        .summary-card {
+            display: none;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05));
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem 2rem;
+            margin-bottom: 1rem;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .summary-text h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .summary-text span {
+            color: var(--text-muted);
+        }
+
+        .savings-badge {
+            background-color: var(--accent-green);
+            color: #ffffff;
+            font-size: 1.6rem;
+            font-weight: 800;
+            padding: 0.5rem 1.2rem;
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+        }
+
+        /* Results Grid */
+        .results-container {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .market-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: var(--transition);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .market-card.cheapest {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 20px var(--accent-green-glow);
+        }
+
+        .market-card-header {
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .market-card-header:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .market-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .medal-badge {
+            font-size: 1.5rem;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .market-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .cheapest-label {
+            background-color: var(--accent-green);
+            color: #ffffff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .market-totals {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .market-found-count {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .market-price {
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        /* Products details drawer */
+        .market-details {
+            border-top: 1px solid var(--card-border);
+            padding: 1.5rem 2rem;
+            background-color: rgba(0, 0, 0, 0.15);
+            display: none;
+        }
+
+        .details-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .product-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+        }
+
+        .product-row:last-child {
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .product-meta {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-search-term {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .product-found-name {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .product-price-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .product-individual-price {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .product-unit {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .product-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+
+        .product-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Not found items */
+        .not-found-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .not-found-title {
+            color: #ef4444;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .not-found-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .not-found-chip {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            padding: 0.3rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+        }
+
+        /* Animations */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 2rem 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>ComparaSupers</h1>
+        <p class="subtitle">Encuentra dónde te sale más barata tu lista de la compra al instante</p>
+    </header>
+
+    <main>
+        <!-- Panel de control para construir la lista -->
+        <section class="panel" id="panel-builder">
+            <div class="input-group">
+                <input type="text" id="item-input" placeholder="Añadir artículo (ej. leche entera, huevos L, arroz...)" aria-label="Añadir artículo">
+                <button class="btn-add" id="btn-add-item" type="button">Añadir</button>
+            </div>
+            
+            <div class="chips-container" id="chips-container">
+                <!-- Los chips dinámicos aparecerán aquí -->
+            </div>
+            
+            <button class="btn-compare" id="btn-compare" disabled type="button">Comparar Precios</button>
+        </section>
+
+        <!-- Loader de carga -->
+        <section class="loader-container" id="loader">
+            <div class="spinner"></div>
+            <div class="loader-text" id="loader-text">Consultando precios en tiempo real de todos los supermercados...</div>
+        </section>
+
+        <!-- Resumen de ahorro -->
+        <section class="summary-card" id="summary-card">
+            <div class="summary-text">
+                <h2 id="summary-winner-text">¡Comprar en Mercadona es tu mejor opción!</h2>
+                <span>Ahorro máximo estimado en comparación con la opción más cara.</span>
+            </div>
+            <div class="savings-badge" id="summary-savings">- 0.00 €</div>
+        </section>
+
+        <!-- Contenedor de Resultados -->
+        <section class="results-container" id="results-container">
+            <!-- Las tarjetas de cada supermercado aparecerán aquí -->
+        </section>
+    </main>
+
+    <footer>
+        <p>© 2026 ComparaSupers. Precios obtenidos mediante consulta web local en tiempo real.</p>
+    </footer>
+
+    <script>
+        // State
+        const shoppingList = new Set();
+        
+        // DOM Elements
+        const itemInput = document.getElementById("item-input");
+        const btnAddItem = document.getElementById("btn-add-item");
+        const chipsContainer = document.getElementById("chips-container");
+        const btnCompare = document.getElementById("btn-compare");
+        const loader = document.getElementById("loader");
+        const resultsContainer = document.getElementById("results-container");
+        const summaryCard = document.getElementById("summary-card");
+        const summaryWinnerText = document.getElementById("summary-winner-text");
+        const summarySavings = document.getElementById("summary-savings");
+
+        // Helper to update list button state
+        function updateCompareButtonState() {
+            btnCompare.disabled = shoppingList.size === 0;
+        }
+
+        // Add item to list
+        function addItem() {
+            const val = itemInput.value.trim().toLowerCase();
+            if (val && !shoppingList.has(val)) {
+                shoppingList.add(val);
+                renderChips();
+                itemInput.value = "";
+                itemInput.focus();
+                updateCompareButtonState();
+            }
+        }
+
+        // Remove item from list
+        function removeItem(item) {
+            shoppingList.delete(item);
+            renderChips();
+            updateCompareButtonState();
+        }
+
+        // Render tags/chips
+        function renderChips() {
+            chipsContainer.innerHTML = "";
+            shoppingList.forEach(item => {
+                const chip = document.createElement("div");
+                chip.className = "chip";
+                chip.innerHTML = `
+                    <span>${item}</span>
+                    <span class="chip-remove" onclick="removeItem('${item}')">×</span>
+                `;
+                chipsContainer.appendChild(chip);
+            });
+        }
+
+        // Event listeners
+        btnAddItem.addEventListener("click", addItem);
+        itemInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                addItem();
+            }
+        });
+
+        // Trigger API Call
+        btnCompare.addEventListener("click", async () => {
+            if (shoppingList.size === 0) return;
+
+            // Hide previous results and show loader
+            resultsContainer.style.display = "none";
+            summaryCard.style.display = "none";
+            loader.style.display = "flex";
+            btnCompare.disabled = true;
+
+            const itemsArray = Array.from(shoppingList);
+
+            try {
+                const response = await fetch("/compare", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ items: itemsArray })
+                });
+
+                if (!response.ok) {
+                    throw new Error("No se pudo obtener la comparativa de la API.");
+                }
+
+                const data = await response.json();
+                renderResults(data);
+            } catch (err) {
+                alert("Error al comparar precios: " + err.message);
+            } finally {
+                loader.style.display = "none";
+                btnCompare.disabled = false;
+            }
+        });
+
+        // Render comparative cards
+        function renderResults(data) {
+            resultsContainer.innerHTML = "";
+            
+            // Render summary banner if there are valid results and savings
+            if (data.results && data.results.length > 0 && data.savings > 0) {
+                summaryWinnerText.textContent = `¡Comprar en ${data.cheapest} es tu opción más barata!`;
+                summarySavings.textContent = `-${data.savings.toFixed(2)} €`;
+                summaryCard.style.display = "flex";
+            } else {
+                summaryCard.style.display = "none";
+            }
+
+            // Medals mapping
+            const medals = ["🥇", "🥈", "🥉", "🏅", "🏅", "🏅", "🏅"];
+
+            // Render each card
+            data.results.forEach((res, index) => {
+                const medal = medals[index] || "🏅";
+                const card = document.createElement("div");
+                card.className = `market-card ${index === 0 && res.products_found > 0 ? "cheapest" : ""}`;
+                
+                // Details content HTML
+                let detailsHTML = `<div class="details-list">`;
+                
+                if (res.items && res.items.length > 0) {
+                    res.items.forEach(item => {
+                        detailsHTML += `
+                            <div class="product-row">
+                                <div class="product-meta">
+                                    <span class="product-search-term">${item.search_term}</span>
+                                    <span class="product-found-name">${item.found_name}</span>
+                                </div>
+                                <div class="product-price-info">
+                                    <span class="product-individual-price">${item.price.toFixed(2)} €</span>
+                                    <span class="product-unit">(${item.unit})</span>
+                                    ${item.url ? `<a href="${item.url}" target="_blank" class="product-link">Ver</a>` : ""}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    detailsHTML += `<div style="color:var(--text-muted);font-size:0.95rem;">Ningún artículo encontrado en este supermercado.</div>`;
+                }
+                
+                detailsHTML += `</div>`;
+
+                // Add not found section
+                if (res.products_not_found && res.products_not_found.length > 0) {
+                    detailsHTML += `
+                        <div class="not-found-section">
+                            <div class="not-found-title">No encontrados:</div>
+                            <div class="not-found-chips">
+                                ${res.products_not_found.map(item => `<span class="not-found-chip">${item}</span>`).join("")}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const cardId = `details-${res.supermarket.toLowerCase().replace(/\s+/g, "-")}`;
+
+                card.innerHTML = `
+                    <div class="market-card-header" onclick="toggleDetails('${cardId}')">
+                        <div class="market-info">
+                            <span class="medal-badge">${res.products_found > 0 ? medal : "❌"}</span>
+                            <span class="market-name">
+                                ${res.supermarket}
+                                ${index === 0 && res.products_found > 0 ? `<span class="cheapest-label">Más barato</span>` : ""}
+                            </span>
+                        </div>
+                        <div class="market-totals">
+                            <span class="market-found-count">${res.products_found}/${data.shopping_list.length} prod.</span>
+                            <span class="market-price">${res.products_found > 0 ? `${res.total.toFixed(2)} €` : "N/A"}</span>
+                        </div>
+                    </div>
+                    <div class="market-details" id="${cardId}">
+                        ${detailsHTML}
+                    </div>
+                `;
+                
+                resultsContainer.appendChild(card);
+            });
+
+            resultsContainer.style.display = "flex";
+        }
+
+        // Toggle details panel
+        window.toggleDetails = function(id) {
+            const el = document.getElementById(id);
+            if (el.style.display === "block") {
+                el.style.display = "none";
+            } else {
+                el.style.display = "block";
+            }
+        };
+    </script>
+</body>
+</html>
