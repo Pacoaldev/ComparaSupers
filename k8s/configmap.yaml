@@ -1,0 +1,19 @@
+# ConfigMap — configuración externalizada, sin hardcodear en el código
+# Para cambiar config no hace falta rebuildar la imagen, solo hacer rollout restart
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: comparasupers-config
+  namespace: comparasupers
+data:
+  # Redis connection (apunta al Service de Redis dentro del cluster)
+  REDIS_URL: "redis://redis-service:6379"
+
+  # Cuánto tiempo cachear resultados (en segundos)
+  CACHE_TTL_SECONDS: "3600"
+
+  # Nivel de log
+  LOG_LEVEL: "info"
+
+  # Almacén de Mercadona (mad1=Madrid, vlc1=Valencia, bcn1=Barcelona)
+  MERCADONA_WAREHOUSE: "mad1"

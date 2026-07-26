@@ -1,0 +1,14 @@
+.git
+.gitignore
+*.md
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.venv
+venv
+env
+*.egg-info
+docker-compose.yaml
+k8s/

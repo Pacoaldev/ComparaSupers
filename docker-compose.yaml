@@ -1,0 +1,79 @@
+# Docker Compose — para desarrollo local sin necesidad de Kubernetes
+#
+# Uso:
+#   docker compose up --build       → levantar todo
+#   docker compose up --build api   → solo la API (Redis ya corriendo)
+#   docker compose down             → parar y borrar contenedores
+#   docker compose logs -f api      → ver logs en tiempo real
+
+services:
+
+  # -------------------------------------------------------------------
+  # Redis — cache de resultados
+  # -------------------------------------------------------------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: comparasupers-redis
+    ports:
+      - "6379:6379"             # accesible en localhost:6379 para debug
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------
+  # API — FastAPI con hot-reload para desarrollo
+  # -------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: comparasupers-api
+    ports:
+      - "8000:8000"             # API disponible en http://localhost:8000
+    environment:
+      REDIS_URL: "redis://redis:6379"
+      CACHE_TTL_SECONDS: "300"  # 5 minutos en dev (más corto para ver cambios)
+      LOG_LEVEL: "debug"
+      MERCADONA_WAREHOUSE: "mad1"
+    depends_on:
+      redis:
+        condition: service_healthy
+    # En desarrollo montamos el código como volumen para hot-reload
+    volumes:
+      - ./api:/app/api
+      - ./scrapers:/app/scrapers
+      - ./aggregator:/app/aggregator
+    # Sobreescribimos CMD para activar hot-reload con --reload
+    command: >
+      uvicorn api.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/api
+      --reload-dir /app/scrapers
+      --reload-dir /app/aggregator
+
+  # -------------------------------------------------------------------
+  # Redis Commander — UI web para inspeccionar Redis (solo desarrollo)
+  # Accede en http://localhost:8081
+  # -------------------------------------------------------------------
+  redis-ui:
+    image: rediscommander/redis-commander:latest
+    container_name: comparasupers-redis-ui
+    environment:
+      REDIS_HOSTS: "local:redis:6379"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    profiles:
+      - debug               # solo se levanta con: docker compose --profile debug up
+
+volumes:
+  redis_data:
+    driver: local

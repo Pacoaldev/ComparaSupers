@@ -1,0 +1,92 @@
+# -----------------------------------------------------------------------
+# Scraper Job — concepto clave de Kubernetes
+# -----------------------------------------------------------------------
+# Un Job es una tarea que corre, termina y Kubernetes verifica que acabó bien.
+# Si falla, k8s lo reintenta automáticamente (hasta backoffLimit veces).
+#
+# Este es un Job de ejemplo. En producción la API crearía Jobs dinámicamente
+# via la Kubernetes API para cada búsqueda.
+# -----------------------------------------------------------------------
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: scraper-test-job
+  namespace: comparasupers
+  labels:
+    app: comparasupers-scraper
+spec:
+  # Reintentos automáticos si el job falla
+  backoffLimit: 3
+
+  # Borrar el Job automáticamente 10 minutos después de completarse
+  ttlSecondsAfterFinished: 600
+
+  template:
+    metadata:
+      labels:
+        app: comparasupers-scraper
+    spec:
+      # Los Jobs NO se reinician como los Deployments — terminan y ya
+      restartPolicy: OnFailure
+
+      containers:
+        - name: scraper
+          image: comparasupers-api:latest
+          imagePullPolicy: Never
+          # Sobreescribimos el CMD del Dockerfile para correr el scraper directamente
+          command: ["python", "-m", "scrapers.mercadona"]
+          env:
+            - name: SEARCH_TERMS
+              value: "leche,pan,huevos"
+          envFrom:
+            - configMapRef:
+                name: comparasupers-config
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+
+---
+# CronJob — versión programada del Job
+# Actualiza precios automáticamente cada 6 horas
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scraper-scheduled
+  namespace: comparasupers
+  labels:
+    app: comparasupers-scraper
+spec:
+  schedule: "0 */6 * * *"    # cada 6 horas (formato cron estándar)
+  concurrencyPolicy: Forbid   # no lanzar nuevo job si el anterior sigue corriendo
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app: comparasupers-scraper-scheduled
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: scraper
+              image: comparasupers-api:latest
+              imagePullPolicy: Never
+              command: ["python", "-c", "print('Scheduled scraper run - implement warm cache logic here')"]
+              envFrom:
+                - configMapRef:
+                    name: comparasupers-config
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "300m"

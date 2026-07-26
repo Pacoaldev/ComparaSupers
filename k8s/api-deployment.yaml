@@ -1,0 +1,71 @@
+# -----------------------------------------------------------------------
+# API ComparaSupers — FastAPI que recibe listas de la compra
+# -----------------------------------------------------------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comparasupers-api
+  namespace: comparasupers
+  labels:
+    app: comparasupers-api
+spec:
+  replicas: 2           # 2 réplicas = alta disponibilidad básica
+  selector:
+    matchLabels:
+      app: comparasupers-api
+  template:
+    metadata:
+      labels:
+        app: comparasupers-api
+    spec:
+      containers:
+        - name: api
+          image: comparasupers-api:latest
+          imagePullPolicy: Never        # usa imagen local (Docker Desktop), no Docker Hub
+          ports:
+            - containerPort: 8000
+          # Leer configuración del ConfigMap
+          envFrom:
+            - configMapRef:
+                name: comparasupers-config
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          # Kubernetes comprueba que el pod está vivo cada 30s
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          # Kubernetes espera a que el pod esté listo antes de enviarle tráfico
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+---
+# Service: expone la API dentro del cluster Y al exterior (NodePort)
+# NodePort permite acceder desde tu navegador en localhost:30800
+apiVersion: v1
+kind: Service
+metadata:
+  name: comparasupers-api-service
+  namespace: comparasupers
+  labels:
+    app: comparasupers-api
+spec:
+  selector:
+    app: comparasupers-api
+  ports:
+    - port: 80              # puerto dentro del cluster
+      targetPort: 8000      # puerto del container
+      nodePort: 30800       # puerto accesible desde fuera (localhost:30800)
+  type: NodePort            # en producción usaríamos LoadBalancer o Ingress

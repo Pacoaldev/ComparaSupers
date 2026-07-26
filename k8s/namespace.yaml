@@ -1,0 +1,9 @@
+# Namespace — agrupa todos los recursos del proyecto
+# Ventaja: puedes borrar todo con `kubectl delete namespace comparasupers`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: comparasupers
+  labels:
+    app.kubernetes.io/name: comparasupers
+    app.kubernetes.io/version: "1.0"
